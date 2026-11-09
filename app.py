@@ -64,55 +64,90 @@ st.markdown("""
 # ==================== ИНИЦИАЛИЗАЦИЯ FIREBASE ====================
 # Поддерживает: 1) st.secrets (Streamlit Cloud)  2) локальный serviceAccountKey.json  3) демо-режим
 
+def _fix_private_key(d):
+    """Приводит private_key к виду с настоящими переносами строк."""
+    if not isinstance(d, dict) or "private_key" not in d:
+        return d
+    pk = d["private_key"]
+    if not isinstance(pk, str):
+        return d
+    # Если ключ пришёл как одна строка с литералами \n
+    if "\\n" in pk and "\n" not in pk:
+        d = dict(d)
+        d["private_key"] = pk.replace("\\n", "\n")
+    return d
+
+
 def init_firebase():
-    """Инициализация Firebase. Возвращает (db, ok)."""
+    """Инициализация Firebase. Возвращает (db, ok, error_message)."""
     if firebase_admin._apps:
         try:
-            return firestore.client(), True
-        except Exception:
-            return None, False
+            return firestore.client(), True, None
+        except Exception as e:
+            return None, False, str(e)
 
-    # 1. Попытка через Streamlit secrets (рекомендуется для деплоя)
+    last_error = None
+
+    # --- 1. Secrets: секция [firebase] ---
     try:
         if "firebase" in st.secrets:
-            # Вариант: весь JSON-ключ лежит в st.secrets["firebase"]
-            cred_dict = dict(st.secrets["firebase"])
+            cred_dict = _fix_private_key(dict(st.secrets["firebase"]))
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            return firestore.client(), True
-        if "FIREBASE_KEY" in st.secrets:
-            # Вариант: JSON-строка
-            import json
-            cred_dict = json.loads(st.secrets["FIREBASE_KEY"])
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-            return firestore.client(), True
+            return firestore.client(), True, None
     except Exception as e:
-        pass  # попробуем другие способы
+        last_error = f"[firebase]: {type(e).__name__}: {e}"
 
-    # 2. Локальный файл
+    # --- 2. Secrets: FIREBASE_KEY = '{...json...}' ---
+    try:
+        if "FIREBASE_KEY" in st.secrets:
+            import json
+            raw = st.secrets["FIREBASE_KEY"]
+            if isinstance(raw, str):
+                cred_dict = json.loads(raw)
+            else:
+                cred_dict = dict(raw)
+            cred_dict = _fix_private_key(cred_dict)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            return firestore.client(), True, None
+    except Exception as e:
+        last_error = f"FIREBASE_KEY: {type(e).__name__}: {e}"
+
+    # --- 3. Локальный файл ---
     key_path = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
     if os.path.exists(key_path):
         try:
             cred = credentials.Certificate(key_path)
             firebase_admin.initialize_app(cred)
-            return firestore.client(), True
-        except Exception:
-            pass
+            return firestore.client(), True, None
+        except Exception as e:
+            last_error = f"local file: {type(e).__name__}: {e}"
 
-    return None, False
+    return None, False, last_error
 
 
-db, FIREBASE_OK = init_firebase()
+db, FIREBASE_OK, FIREBASE_ERROR = init_firebase()
 
 if not FIREBASE_OK:
-    st.sidebar.warning(
-        "⚠️ Firebase не подключён.\n"
-        "Работает **демо-режим** (данные только в текущей сессии).\n\n"
-        "Для постоянного хранения:\n"
-        "• локально — положите `serviceAccountKey.json`\n"
-        "• на Streamlit Cloud — добавьте секрет `firebase`"
-    )
+    with st.sidebar:
+        st.warning(
+            "⚠️ Firebase **не подключён**\n\n"
+            "Сейчас работает **демо-режим** (данные только в сессии браузера)."
+        )
+        if FIREBASE_ERROR:
+            st.error(f"Ошибка подключения:\n\n`{FIREBASE_ERROR}`")
+        st.markdown(
+            """
+**Как исправить на Streamlit Cloud:**
+
+1. Правый верхний угол → **⋮ → Settings → Secrets**
+2. Вставьте ключ в формате TOML (см. инструкцию)
+3. **Save** — приложение перезапустится
+"""
+        )
+else:
+    st.sidebar.success("✅ Firebase подключён")
 
 # ==================== ЗАГОЛОВОК ====================
 st.markdown('<p class="main-header" id="potreblenie-strimingovogo-video">📺 Потребление стримингового видео</p>', unsafe_allow_html=True)
