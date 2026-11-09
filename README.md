@@ -1,63 +1,59 @@
 # Опросник: Потребление стримингового видео (Тема №29)
 
-Публичная ссылка после деплоя будет вида:
+Одностраничное веб-приложение на **Streamlit** с сохранением ответов в **Firebase Firestore** и аналитикой на **Pandas + Plotly**.
 
-```
-https://ВАШЕ-ИМЯ-ПРИЛОЖЕНИЯ.streamlit.app/#potreblenie-strimingovogo-video
-```
+## Возможности
 
-## Как получить ссылку (Streamlit Community Cloud)
+- Анонимная форма опроса (профиль, платформы, время просмотра, влияние на учёбу)
+- Сохранение ответов в облачную базу Firestore
+- Демо-режим (работа без ключа Firebase — данные хранятся в session_state)
+- Аналитическая панель с KPI, гистограммами, круговыми и столбчатыми диаграммами
+- Экспорт результатов в CSV
 
-### 1. Загрузите код на GitHub
+## Быстрый старт
 
-1. Создайте **публичный** репозиторий на GitHub (например `streaming-survey-app`).
-2. Загрузите в него файлы:
-   - `app.py`
-   - `requirements.txt`
-   - `.gitignore`
-   - этот `README.md`
+```bash
+# 1. Установка зависимостей
+pip install -r requirements.txt
 
-Не загружайте `serviceAccountKey.json`!
+# 2. (Опционально) Добавьте serviceAccountKey.json в корень проекта
+#    Скачайте ключ сервисного аккаунта из Firebase Console
 
-### 2. Задеплойте на Streamlit Cloud
-
-1. Зайдите на https://share.streamlit.io/
-2. Войдите через GitHub.
-3. Нажмите **New app**.
-4. Выберите ваш репозиторий, ветку `main`, файл `app.py`.
-5. Нажмите **Deploy**.
-
-Через 1–2 минуты появится ссылка вида:
-`https://streaming-survey-app-xxxxx.streamlit.app`
-
-### 3. (Рекомендуется) Подключите Firebase через Secrets
-
-1. В настройках приложения на Streamlit Cloud → **Settings → Secrets**.
-2. Вставьте содержимое вашего `serviceAccountKey.json` в таком виде:
-
-```toml
-[firebase]
-type = "service_account"
-project_id = "ваш-project-id"
-private_key_id = "..."
-private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-client_email = "firebase-adminsdk-...@....iam.gserviceaccount.com"
-client_id = "..."
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "..."
-universe_domain = "googleapis.com"
+# 3. Запуск
+streamlit run app.py
 ```
 
-3. Сохраните — приложение перезапустится и начнёт писать в Firestore.
+Откройте http://localhost:8501
 
-### 4. Ссылка для отчёта / защиты
-
-После деплоя скопируйте URL и добавьте якорь:
+## Структура
 
 ```
-https://ВАШЕ-ПРИЛОЖЕНИЕ.streamlit.app/#potreblenie-strimingovogo-video
+survey_app/
+├── app.py                  # Основное приложение
+├── serviceAccountKey.json  # Ключ Firebase (не коммитить!)
+├── requirements.txt
+├── .gitignore
+└── README.md
 ```
 
-Эту ссылку можно вставить в отчёт, дневник и презентацию.
+## Тема опроса (№29)
+
+**Потребление стримингового видео**
+
+Ключевые метрики:
+- Используемые платформы (YouTube, Netflix, Кинопоиск и др.)
+- Среднее время просмотра в день / дней в неделю
+- Типы контента
+- Влияние на учёбу и сон
+- Мультитаскинг
+- Удовлетворённость сервисами
+
+## Безопасность
+
+- Файл `serviceAccountKey.json` добавьте в `.gitignore`
+- В продакшене используйте `st.secrets` вместо локального файла
+
+## Автор
+
+Учебная практика (ознакомительная)  
+Направление 09.03.01 «Информатика и вычислительная техника»
