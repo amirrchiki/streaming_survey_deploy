@@ -62,24 +62,30 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==================== ИНИЦИАЛИЗАЦИЯ FIREBASE ====================
-# Поддерживает: 1) st.secrets (Streamlit Cloud)  2) локальный serviceAccountKey.json  3) демо-режим
+# Поддерживает: 1) st.secrets  2) локальный файл  3) демо-режим
 
 def _fix_private_key(d):
-    """Приводит private_key к виду с настоящими переносами строк."""
+    """Приводит private_key к корректному PEM с настоящими переносами строк."""
     if not isinstance(d, dict) or "private_key" not in d:
         return d
-    pk = d["private_key"]
+    pk = d.get("private_key")
     if not isinstance(pk, str):
         return d
-    # Если ключ пришёл как одна строка с литералами \n
-    if "\\n" in pk and "\n" not in pk:
-        d = dict(d)
-        d["private_key"] = pk.replace("\\n", "\n")
+    d = dict(d)
+    # Литералы \n → настоящие переносы
+    if "\\n" in pk and "\n" not in pk.replace("\\n", ""):
+        pk = pk.replace("\\n", "\n")
+    elif "\\n" in pk:
+        # mixed - force
+        pk = pk.replace("\\n", "\n")
+    # Убираем лишние пробелы по краям строк
+    lines = [ln.strip() for ln in pk.strip().splitlines() if ln.strip()]
+    d["private_key"] = "\n".join(lines) + "\n"
     return d
 
 
 def init_firebase():
-    """Инициализация Firebase. Возвращает (db, ok, error_message)."""
+    """Возвращает (db, ok, error_message)."""
     if firebase_admin._apps:
         try:
             return firestore.client(), True, None
@@ -88,7 +94,7 @@ def init_firebase():
 
     last_error = None
 
-    # --- 1. Secrets: секция [firebase] ---
+    # 1) Секция [firebase] в Secrets
     try:
         if "firebase" in st.secrets:
             cred_dict = _fix_private_key(dict(st.secrets["firebase"]))
@@ -98,12 +104,13 @@ def init_firebase():
     except Exception as e:
         last_error = f"[firebase]: {type(e).__name__}: {e}"
 
-    # --- 2. Secrets: FIREBASE_KEY = '{...json...}' ---
+    # 2) FIREBASE_KEY = весь JSON
     try:
         if "FIREBASE_KEY" in st.secrets:
             import json
             raw = st.secrets["FIREBASE_KEY"]
             if isinstance(raw, str):
+                raw = raw.strip()
                 cred_dict = json.loads(raw)
             else:
                 cred_dict = dict(raw)
@@ -114,7 +121,7 @@ def init_firebase():
     except Exception as e:
         last_error = f"FIREBASE_KEY: {type(e).__name__}: {e}"
 
-    # --- 3. Локальный файл ---
+    # 3) Локальный файл
     key_path = os.getenv("FIREBASE_KEY", "serviceAccountKey.json")
     if os.path.exists(key_path):
         try:
@@ -142,7 +149,7 @@ if not FIREBASE_OK:
 **Как исправить на Streamlit Cloud:**
 
 1. Правый верхний угол → **⋮ → Settings → Secrets**
-2. Вставьте ключ в формате TOML (см. инструкцию)
+2. Вставьте ключ (см. инструкцию)
 3. **Save** — приложение перезапустится
 """
         )
